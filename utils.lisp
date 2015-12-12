@@ -41,6 +41,10 @@
        (* (vy vec) scale)
        (* (vz vec) scale)))
 
+(defun size-vec (vec)
+  "Size of a vector."
+  (+ (vx vec) (vy vec) (vz vec)))
+
 ;; Queues
 (defun make-queue ()
   "Creates a queue."

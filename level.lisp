@@ -29,7 +29,7 @@
    (timers :initform (make-hash-table :test 'eql) :accessor timers)))
 
 (defmethod initialize-instance :after ((level level) &key)
-  (enter (make-instance 'origin) level))
+  (enter (make-instance 'origin :level level) level))
 
 (defmethod enter ((object updatable) (level level))
   (unless (typep object 'paintable)
@@ -47,8 +47,8 @@
 
 (defmethod cap ((level level) vec)
   (destructuring-bind (left right bottom top) (extent level)
-    (setf (x vec) (max left (min right (x vec)))
-          (y vec) (max bottom (min top (y vec)))))
+    (setf (vx vec) (max left (min right (vx vec)))
+          (vy vec) (max bottom (min top (vy vec)))))
   vec)
 
 (defmethod timer-ready-p (name timeout (level level))
@@ -145,8 +145,8 @@
 (defmethod paint :after ((entity damageable-entity) target)
   (when (< 0 (health entity))
     (q+:fill-rect target
-                  (round (- (x (location entity)) (health entity)))
-                  (round (- (y (location entity)) 2))
+                  (round (- (vx (location entity)) (health entity)))
+                  (round (- (vy (location entity)) 2))
                   (round (* (health entity) 2))
                   2
                   (q+:qt.red))))

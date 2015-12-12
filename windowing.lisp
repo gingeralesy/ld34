@@ -10,8 +10,8 @@
 (define-widget main (QWidget)
   ((paused :initform NIL :accessor paused-p)
    (victory :initform NIL :accessor victory-p)
-   (level :initform (make-instance 'level) :finalized T)
-   (player :initform (make-instance 'player))
+   (level :initform NIL)
+   (player :initform NIL)
    (keys :initform (make-hash-table :test 'eql) :accessor keys)))
 
 ;; Sub-widgets, additional slots, initializer, and finalizer
@@ -26,7 +26,7 @@
   (declare (connected timer (timeout)))
   (let ((start (get-internal-real-time)))
     (with-simple-restart (abort "Abort the update and continue.")
-      (update level))
+      (update (level)))
     (q+:repaint main)
     (let* ((elapsed (* (/ (- (get-internal-real-time) start)
                           internal-time-units-per-second)
@@ -38,7 +38,9 @@
   (setf *main-window* main)
   (q+:resize main 1024 768)
   (setf (q+:window-title main) *title*)
-  (enter player level))
+  (setf (slot-value main 'level) (make-instance 'level))
+  (setf (slot-value main 'player) (make-instance 'player :level (level)))
+  (enter (player) level))
 
 (define-finalizer (main teardown)
   (loop for v being the hash-values of *asset-cache* do (finalize v))
@@ -46,13 +48,13 @@
   (setf *main-window* NIL))
 
 (defmethod running ((main main))
-  (running (slot-value main 'level)))
+  (running (level)))
 
 (defmethod start ((main main))
-  (stop (slot-value main 'level)))
+  (stop (level)))
 
 (defmethod stop ((main main))
-  (start (slot-value main 'level)))
+  (start (level)))
 
 ;; Slot getters
 ;; TODO: Support for multiple levels?
@@ -117,35 +119,39 @@
                                   0)
                              (scale-vec (location player) -1))))
         (with-translation (view painter)
-          (paint level painter)))
+          (paint (level) painter)))
       ;; Overlay
       (unless (running main)
         (with-finalizing ((overlay (q+:make-qcolor 0 0 0 180))
                           (white (q+:make-qcolor 255 255 255)))
           (q+:fill-rect painter (q+:rect main) overlay)
-          (let ((font (q+:font painter))
-                (player (player main)))
-            (setf (q+:color (q+:pen painter)) white
-                  (q+:font painter) font)
-            (q+:draw-text painter
-                          (q+:rect main)
-                          (q+:qt.align-center)
-                          (cond ((not player)
-                                 (setf (q+:point-size font) 72)
-                                 "Game Over")
-                                ((victory-p main)
-                                 (setf (q+:point-size font) 72)
-                                 "Victory!")
-                                ((paused-p main)
-                                 (setf (q+:point-size font) 32)
-                                 (format NIL "Paused.~%Press ESC to resume."))
-                                (T ;; return T for paint even success
-                                  T)))))))))
+          (let ((text (cond ((not (player)) :game-over)
+                            ((victory-p main) :victory)
+                            ((paused-p main) :paused))))
+            (if text
+                (let ((font (q+:font painter)))
+                  (setf (q+:color (q+:pen painter)) white
+                        (q+:font painter) font)
+                  (q+:draw-text
+                   painter
+                   (q+:rect main)
+                   (q+:qt.align-center)
+                   (case text
+                     (:game-over
+                      (setf (q+:point-size font) 72)
+                      "Game Over")
+                     (:victory
+                      (setf (q+:point-size font) 72)
+                      "Victory!")
+                     (:paused
+                      (setf (q+:point-size font) 32)
+                      (format NIL "Paused.~%Press ESC to resume.")))))
+                T)))))))
 
 ;; Methods
 (defmethod call-with-translation (func target vec)
   (q+:save target)
-  (q+:translate target (x vec) (y vec))
+  (q+:translate target (vx vec) (vy vec))
   (unwind-protect
    (funcall func)
    (q+:restore target)))

@@ -6,7 +6,9 @@
 
 (defclass entity (updatable)
   ((location :initarg :location :accessor location)
-   (name :initarg :name :accessor name))
+   (name :initarg :name :accessor name)
+   (level :initarg :level :accessor level))
   (:default-initargs
    :location (vec 0 0 0)
-   :name :generic))
+   :name :generic
+   :level (error "Please define level.")))
