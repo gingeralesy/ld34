@@ -38,9 +38,13 @@
   (:default-initargs :default-animation :idle))
 
 (defmethod sprite ((obj animatable))
-  (sprite (elt (frames (gethash (animation obj)
-                                (animations obj)))
-               (frame obj))))
+  (let* ((animation (or (gethash (animation obj) (animations obj))
+                        (error (format NIL "Invalid animation requested: ~a"
+                                       (animation obj)))))
+         (frame (or (elt (frames animation) (frame obj))
+                    (error (format NIL "Invalid frame '~a' for animation '~a'"
+                                   (frame obj) animation)))))
+    (sprite frame)))
 
 (defmethod paint ((obj animatable) target)
   (let ((image (sprite obj)))
@@ -49,8 +53,7 @@
                    (q+:height image)
                    image)))
 
-  ;; Animation class
-
+;; Animation class
 (defclass animation ()
   ((frames :initform (make-array 8
                                  :fill-pointer 0
