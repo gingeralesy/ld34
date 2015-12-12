@@ -1,11 +1,10 @@
 (in-package #:ld34)
-#|
-| Classes defined here:
-|  - paintable
-|  - animatable
-|  - animation
-|  - frame
-|#
+
+;; Classes of this file
+(defclass paintable () ())
+(defclass animatable () ())
+(defclass animation () ())
+(defclass frame () ())
 
 ;; Generics
 (defgeneric call-with-translation (func target vec))
