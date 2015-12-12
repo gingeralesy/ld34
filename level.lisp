@@ -3,9 +3,14 @@
 
 ;; Level
 
-(defclass level (clock paintable)
+(defclass level (paintable clock)
   ((extend :initform '(-4096 +4096 -4096 +4096) :accessor extent)
-   (timers :initform (make-hash-table :test 'eql) :accessor timers)))
+   (timers :initform (make-hash-table :test 'eql) :accessor timers)
+   (objects :initform (make-array 8
+                                  :fill-pointer 0
+                                  :adjustable T
+                                  :element-type 'updatable)
+            :accessor objects)))
 
 (defmethod initialize-instance :after ((level level) &key)
   (enter (make-instance 'origin) level))
@@ -18,6 +23,47 @@
     (setf (x vec) (max left (min right (x vec)))
           (y vec) (max bottom (min top (y vec)))))
   vec)
+
+;; Clock
+
+(defclass clock (updatable)
+  ((previous-time :initform (get-internal-real-time) :accessor previous-time)
+   (clock :initarg :clock :accessor clock)
+   (running :initarg :running :accessor running))
+  (:default-initargs
+   :clock 0.0s0
+   :running NIL))
+
+(defmethod reset ((clock clock))
+  (setf (clock clock) 0.0s0)
+  (setf (previous-time clock) (get-internal-real-time))
+  clock)
+
+(defmethod stop ((clock clock))
+  (setf (running clock) NIL)
+  clock)
+
+(defmethod start ((clock clock))
+  (setf (previous-time clock) (get-internal-real-time))
+  (setf (running clock) T)
+  clock)
+
+(defmethod sync ((clock clock) (with clock))
+  (setf (clock clock) (clock with)
+        (previous-time clock) (get-internal-real-time))
+  clock)
+
+(defmethod update :before ((clock clock))
+  (let ((new-time (get-internal-real-time)))
+    (incf (clock clock)
+        (float (/ (- new-time (previous-time clock))
+                  internal-time-units-per-second)
+               1.0s0))
+    (setf (previous-time clock) new-time)))
+
+(defmethod update :around ((clock clock))
+  (when (running clock)
+    (call-next-method)))
 
 ;; Origin
 (defclass origin (entity paintable) ())

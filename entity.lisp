@@ -1,6 +1,9 @@
 (in-package #:ld34)
 
-(defclass entity ()
+(defgeneric updatable (updatable))
+(defclass updatable () ())
+
+(defclass entity (updatable)
   ((location :initarg :location :accessor location))
   (:default-initargs
    :location (vec 0 0 0)))
