@@ -13,9 +13,14 @@
   :homepage "https://github.com/gingeralesy/ld34"
   :version "0.0.0"
   :components ((:file "package")
+               (:file "utils")
+               (:file "entity")
+               (:file "animation")
+               (:file "level")
+               (:file "player")
                (:file "windowing"))
   :defsystem-depends-on (:qtools)
-  :depends-on (:simple-tasks
-               :qtools
+  :depends-on (:qtools
                :qtcore
-               :qtgui))
+               :qtgui
+               :3d-vectors))
