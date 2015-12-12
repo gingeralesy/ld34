@@ -17,13 +17,9 @@
               (funcall func)))
   (q+:restore target))
 
-;; Macros
+;; Generic macros
 (defmacro with-translation ((vec target) &body body)
   `(call-with-translation (lambda () ,@body) ,target ,vec))
-
-(defmacro define-animation (name options &body sequences)
-  (format T "Name: ~a~%Options:~a" name options)
-  `(progn ,@sequences))
 
 ;; Paintable class
 (defgeneric paint (paintable target))
@@ -36,24 +32,24 @@
 ;; Animatable class
 (defclass animatable (paintable)
   ((animations :initform NIL :accessor animations)
-   (default-animation :initarg :default-animation :accessor default-animation)
-   (frame :initform 0 :accessor frame)
+   (current-animation :initarg :default-animation :accessor current-animation)
+   (current-frame :initform 0 :accessor current-frame)
    (spritesheet :initarg :spritesheet :accessor spritesheet))
-  (:default-initargs :default-animation :idle))
+  (:default-initargs :default-animation (error "Please define the default animation.")))
 
 (defmethod (setf animation) ((entity animatable) (animation animation))
   (setf (getf (animations entity) (name animation)) animation))
 
-(defmethod animation ((entity animatable) name)
-  (getf (animations entity) name))
+(defmethod animation ((entity animatable) &optional name)
+  (getf (animations entity) (or name (current-animation animation))))
 
 (defmethod sprite ((obj animatable))
-  (let* ((animation (or (gethash (animation obj) (animations obj))
+  (let* ((animation (or (animation obj)
                         (error (format NIL "Invalid animation requested: ~a"
-                                       (animation obj)))))
-         (frame (or (elt (frames animation) (frame obj))
+                                       (current-animation obj)))))
+         (frame (or (frame animation (current-frame obj))
                     (error (format NIL "Invalid frame '~a' for animation '~a'"
-                                   (frame obj) animation)))))
+                                   (current-frame obj) (name animation))))))
     (sprite frame)))
 
 (defmethod paint ((obj animatable) target)
@@ -65,14 +61,20 @@
 
 ;; Animation class
 (defclass animation ()
-  ((frames :initform (make-array 8
-                                 :fill-pointer 0
-                                 :adjustable T
-                                 :element-type 'frame)
-           :accessor frames)
+  ((frames :initform NIL :accessor frames)
    (name :initarg :name :accessor name))
   (:default-initargs
    :name (error "Must define a name.")))
+
+(defmethod (setf frame) ((animation animation) (frame frame))
+  (push (frames animation) frame))
+
+(defmethod frame ((animation animation) index)
+  (nth index (frames animation)))
+
+(defmacro define-animation (name options &body sequences)
+  (make-instance 'animation :name name)
+  `(progn ,@sequences))
 
 ;; Frame class
 (defclass frame ()
