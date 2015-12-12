@@ -96,32 +96,46 @@
   `(let (animations (file (getf ',options :file)))
      ,(if sequences
           `(loop for sequence in ',sequences
-                 do (let ((animation (make-instance 'animation :name (getf sequence :sequence ',name))))
+                 do (let ((animation (make-instance 'animation :name (getf sequence :sequence ',name)))
+                          (step (getf sequence :step (getf ',options :step))))
+                      (unless step (error "Missing frame step."))
                       (loop for frame-info in (getf sequence :frames)
                             do (push-frame
                                 (etypecase frame-info
                                   (list
                                    (let ((index (pop frame-info)))
                                      (make-frame file index ',options
-                                                 :offset (or (getf frame-info :offset)
-                                                             (getf sequence :offset))
+                                                 :offset (offset (or (getf frame-info :offset)
+                                                                     (getf sequence :offset)
+                                                                     (getf ',options :offset))
+                                                                 step index)
                                                  :duration (or (getf frame-info :duration)
                                                                (getf sequence :duration)))))
                                   (number (make-frame file frame-info ',options
-                                                      :offset (getf sequence :offset)
+                                                      :offset (offset (or (getf sequence :offset)
+                                                                          (getf ',options :offset))
+                                                                      step
+                                                                      frame-info)
                                                       :duration (getf sequence :duration))))
                                 animation))
                       (push animation animations)))
-          `(let ((animation (make-instance 'animation :name ',name)))
+          `(let ((animation (make-instance 'animation :name ',name))
+                 (step (getf ',options :step)))
              (loop for frame-info in (getf ',options :frames)
                    do (push-frame
                        (etypecase frame-info
                          (list
                           (let ((index (pop frame-info))) ;; remove index
                             (make-frame file index ',options
-                                        :offset (getf frame-info :offset)
+                                        :offset (offset
+                                                 (or (getf frame-info :offset)
+                                                     (getf ',options :offset))
+                                                 step index)
                                         :duration (getf frame-info :duration))))
-                         (number (make-frame file frame-info ',options)))
+                         (number (make-frame file frame-info ',options
+                                             :offset (offset
+                                                      (getf ',options :offset)
+                                                      step frame-info))))
                        animation))
              (push animation animations)))
      (unless (< 0 (length animations))
@@ -169,3 +183,7 @@
                  :sprite file
                  :offset (or offset (getf options :offset))
                  :duration (or duration (getf options :duration))))
+
+(defun offset (offset step index)
+  (list (+ (car offset) (* index (car step)))
+        (+ (cdr offset) (* index (cdr step)))))
