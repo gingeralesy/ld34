@@ -37,13 +37,21 @@
    (spritesheet :initarg :spritesheet :accessor spritesheet))
   (:default-initargs :default-animation (error "Please define the default animation.")))
 
+(defmethod (setf animation) ((entity animatable) (animations list))
+  "Adds a list of animations to the entity."
+  (loop for animation in animations
+        do (setf (animation entity) animation)))
+
 (defmethod (setf animation) ((entity animatable) (animation animation))
+  "Adds a single animation to the entity."
   (setf (getf (animations entity) (name animation)) animation))
 
 (defmethod animation ((entity animatable) &optional name)
+  "Gets the animation by the given name from the entity."
   (getf (animations entity) (or name (current-animation animation))))
 
 (defmethod sprite ((animatable animatable))
+  "Gets the current sprite for the entity."
   (let* ((animation (or (animation animatable)
                         (error (format NIL "Invalid animation requested: ~a"
                                        (current-animation animatable)))))
@@ -76,10 +84,10 @@
 
 (defmacro define-animation (name options &body sequences)
   "Constructs an animation with the frames for it."
-  `(let (animations (file (getf ',options :file ,name)))
+  `(let (animations (file (getf ',options :file)))
      ,(if sequences
           `(loop for sequence in ',sequences
-                 do (let ((animation (make-instance 'animation :name (getf sequence :sequence ,name))))
+                 do (let ((animation (make-instance 'animation :name (getf sequence :sequence ',name))))
                       (loop for frame-info in (getf sequence :frames)
                             do (setf (frames animation)
                                      (etypecase frame-info
@@ -94,7 +102,7 @@
                                                            :offset (getf sequence :offset)
                                                            :duration (getf sequence :duration))))))
                       (push animation animations)))
-          `(let ((animation (make-instance 'animation :name ,name)))
+          `(let ((animation (make-instance 'animation :name ',name)))
              (loop for frame-info in (getf ',options :frames)
                    do (setf (frames animation)
                             (etypecase frame-info
