@@ -154,7 +154,10 @@
      (let ((filepath (uiop:native-namestring sprite)))
        (unless (probe-file filepath)
          (error "File does not exist: ~a" filepath))
-       (setf (sprite frame) (q+:make-qimage filepath))))
+       (let ((image (q+:make-qimage filepath)))
+         (when (q+:is-null image)
+           (error "File does not exist: ~a" sprite))
+         (setf (sprite frame) image))))
     (qobject
      (unless (and (qtypep sprite "QImage") (not (q+:is-null sprite)))
        (error "~s is not of class QImage." sprite))
