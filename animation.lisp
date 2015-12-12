@@ -76,40 +76,38 @@
 
 (defmacro define-animation (name options &body sequences)
   "Constructs an animation with the frames for it."
-  (let (animations (file (getf options :file name)))
-    (if (= 0 (length sequences))
-        (let ((animation (make-instance 'animation :name name)))
-          (loop for frame-info in (getf options :frames)
-                do (queue-push
-                    (etypecase frame-info
-                      (list
-                       (let ((index (pop frame-info))) ;; remove index
-                         (make-frame file index options
-                                     :offset (getf frame-info :offset)
-                                     :duration (getf frame-info :duration))))
-                      (number (make-frame file frame-info options)))
-                    (frames animation)))
-          (push animation animations))
-        (loop for sequence in sequences
-              do (let ((animation (make-instance 'animation :name (getf sequence :sequence name))))
-                   (loop for frame-info in (getf sequence :frames)
-                         do (queue-push
-                             (etypecase frame-info
-                               (list
-                                (let ((index (pop frame-info)))
-                                  (make-frame file index options
-                                              :offset (or (getf frame-info :offset)
-                                                          (getf sequence :offset))
-                                              :duration (or (getf frame-info :duration)
-                                                            (getf sequence :duration)))))
-                               (number (make-frame file frame-info options
-                                                   :offset (getf sequence :offset)
-                                                   :duration (getf sequence :duration))))
-                             (frames animation)))
-                   (push animation animations))))
-    (unless (< 0 (length animations))
-      (error "No animations specified."))
-    animations))
+  `(let (animations (file (getf ',options :file ,name)))
+     ,(if sequences
+          `(loop for sequence in ',sequences
+                 do (let ((animation (make-instance 'animation :name (getf sequence :sequence ,name))))
+                      (loop for frame-info in (getf sequence :frames)
+                            do (setf (frames animation)
+                                     (etypecase frame-info
+                                       (list
+                                        (let ((index (pop frame-info)))
+                                          (make-frame file index ',options
+                                                      :offset (or (getf frame-info :offset)
+                                                                  (getf sequence :offset))
+                                                      :duration (or (getf frame-info :duration)
+                                                                    (getf sequence :duration)))))
+                                       (number (make-frame file frame-info ',options
+                                                           :offset (getf sequence :offset)
+                                                           :duration (getf sequence :duration))))))
+                      (push animation animations)))
+          `(let ((animation (make-instance 'animation :name ,name)))
+             (loop for frame-info in (getf ',options :frames)
+                   do (setf (frames animation)
+                            (etypecase frame-info
+                              (list
+                               (let ((index (pop frame-info))) ;; remove index
+                                 (make-frame file index ',options
+                                             :offset (getf frame-info :offset)
+                                             :duration (getf frame-info :duration))))
+                              (number (make-frame file frame-info ',options)))))
+             (push animation animations)))
+     (unless (< 0 (length animations))
+       (error "No animations specified."))
+     animations))
 
 ;; Frame class
 (defclass frame ()
