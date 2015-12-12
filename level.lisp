@@ -1,16 +1,23 @@
 (in-package #:ld34)
 (in-readtable :qtools)
 
-;; Level
+;; Container
 
-(defclass level (paintable clock)
-  ((extend :initform '(-4096 +4096 -4096 +4096) :accessor extent)
-   (timers :initform (make-hash-table :test 'eql) :accessor timers)
-   (objects :initform (make-array 8
+(defclass object-container ()
+  ((objects :initform (make-array 8
                                   :fill-pointer 0
                                   :adjustable T
                                   :element-type 'updatable)
             :accessor objects)))
+
+(defmethod enter ((object updatable) (container object-container))
+  (vector-push-extend object (objects container)))
+
+;; Level
+
+(defclass level (paintable clock object-container)
+  ((extend :initform '(-4096 +4096 -4096 +4096) :accessor extent)
+   (timers :initform (make-hash-table :test 'eql) :accessor timers)))
 
 (defmethod initialize-instance :after ((level level) &key)
   (enter (make-instance 'origin) level))
@@ -82,12 +89,25 @@
 ;; Sprite entity
 (defclass sprite-entity (entity animatable) ())
 
+;; Hitbox class
+(defclass hitbox (entity)
+  ((w :initarg :w :accessor w)
+   (h :initarg :h :accessor h))
+  (:default-initargs
+   :w 32 :h 32))
+
 ;; Entity with Hitbox
-(defclass hitbox-entity () ())
+(defclass hitbox-entity (entity object-container) ())
+
+(defmethod enter ((object updatable) (entity hitbox-entity))
+  (error "May only store hitboxes into this collection."))
+
+(defmethod enter ((hitbox hitbox) (entity hitbox-entity))
+  (vector-push-extend hitbox (objects entity)))
 
 ;; Entity with HP
 (defclass damageable-entity (entity)
-  ((health :initargs :health :accessor health))
+  ((health :initarg :health :accessor health))
   (:default-initargs :health 100))
 
 (defmethod damage ((entity damageable-entity) amount)

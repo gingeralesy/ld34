@@ -10,7 +10,8 @@
      (invincible :initform NIL :accessor invincible)
      (keymap :initform (make-hash-table :test 'eql) :accessor keymap))
     (:default-initargs
-     :sprite "player"
+     :name :player
+     :spritesheet "player"
      :health 10000)))
 
 (defmethod initialize-instance :after ((player player) &key)

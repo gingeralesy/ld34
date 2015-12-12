@@ -11,7 +11,7 @@
   ((paused :initform NIL :accessor paused-p)
    (victory :initform NIL :accessor victory-p)
    (level :initform (make-instance 'level) :finalized T)
-   (player :initform (make-instance 'player :name :player))
+   (player :initform (make-instance 'player))
    (keys :initform (make-hash-table :test 'eql) :accessor keys)))
 
 (defmethod running ((main main))

@@ -33,7 +33,8 @@
   ((animations :initform (make-hash-table :test 'eql)
                :accessor animations)
    (animation :initarg :default-animation :accessor animation)
-   (frame :initform 0 :accessor frame))
+   (frame :initform 0 :accessor frame)
+   (spritesheet :initarg :spritesheet :accessor spritesheet))
   (:default-initargs :default-animation :idle))
 
 (defmethod paint ((paintable animatable) target)
