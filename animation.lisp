@@ -1,4 +1,5 @@
 (in-package #:ld34)
+(in-readtable :qtools)
 
 ;; Classes of this file
 (defclass paintable () ())
@@ -20,6 +21,10 @@
 (defmacro with-translation ((vec target) &body body)
   `(call-with-translation (lambda () ,@body) ,target ,vec))
 
+(defmacro define-animation (name options &body sequences)
+  (format T "Name: ~a~%Options:~a" name options)
+  `(progn ,@sequences))
+
 ;; Paintable class
 (defgeneric paint (paintable target))
 (defgeneric sprite (paintable))
@@ -30,12 +35,17 @@
 
 ;; Animatable class
 (defclass animatable (paintable)
-  ((animations :initform (make-hash-table :test 'eql)
-               :accessor animations)
-   (animation :initarg :default-animation :accessor animation)
+  ((animations :initform NIL :accessor animations)
+   (default-animation :initarg :default-animation :accessor default-animation)
    (frame :initform 0 :accessor frame)
    (spritesheet :initarg :spritesheet :accessor spritesheet))
   (:default-initargs :default-animation :idle))
+
+(defmethod (setf animation) ((entity animatable) (animation animation))
+  (setf (getf (animations entity) (name animation)) animation))
+
+(defmethod animation ((entity animatable) name)
+  (getf (animations entity) name))
 
 (defmethod sprite ((obj animatable))
   (let* ((animation (or (gethash (animation obj) (animations obj))
@@ -59,7 +69,10 @@
                                  :fill-pointer 0
                                  :adjustable T
                                  :element-type 'frame)
-           :accessor frames)))
+           :accessor frames)
+   (name :initarg :name :accessor name))
+  (:default-initargs
+   :name (error "Must define a name.")))
 
 ;; Frame class
 (defclass frame ()
@@ -68,7 +81,8 @@
    (area :initarg :area :accessor area))
   (:default-initargs
    :duration 1.0
-   :sprite (error "Sprite needed!")))
+   :sprite (error "Sprite needed!")
+   :area (vec 32 32 0)))
 
 (defmethod initialize-instance :after ((frame frame) &key)
   (setf (sprite frame) (sprite frame)))

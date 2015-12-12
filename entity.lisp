@@ -1,4 +1,5 @@
 (in-package #:ld34)
+(in-readtable :qtools)
 
 (defgeneric update (updatable))
 (defclass updatable () ())
