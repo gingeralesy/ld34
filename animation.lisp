@@ -43,17 +43,17 @@
 (defmethod animation ((entity animatable) &optional name)
   (getf (animations entity) (or name (current-animation animation))))
 
-(defmethod sprite ((obj animatable))
-  (let* ((animation (or (animation obj)
+(defmethod sprite ((animatable animatable))
+  (let* ((animation (or (animation animatable)
                         (error (format NIL "Invalid animation requested: ~a"
-                                       (current-animation obj)))))
-         (frame (or (frame animation (current-frame obj))
+                                       (current-animation animatable)))))
+         (frame (or (frame animation (current-frame animatable))
                     (error (format NIL "Invalid frame '~a' for animation '~a'"
-                                   (current-frame obj) (name animation))))))
+                                   (current-frame animatable) (name animation))))))
     (sprite frame)))
 
-(defmethod paint ((obj animatable) target)
-  (let ((image (sprite obj)))
+(defmethod paint ((animatable animatable) target)
+  (let ((image (sprite animatable)))
     (q+:draw-image target
                    (round (/ (q+:width image) -2))
                    (q+:height image)
@@ -61,30 +61,67 @@
 
 ;; Animation class
 (defclass animation ()
-  ((frames :initform NIL :accessor frames)
+  ((frames :initform (make-queue) :accessor frames)
    (name :initarg :name :accessor name))
   (:default-initargs
    :name (error "Must define a name.")))
 
 (defmethod (setf frame) ((animation animation) (frame frame))
-  (push (frames animation) frame))
+  "Adds a frame to the frame queue."
+  (queue-push frame (frames animation)))
 
 (defmethod frame ((animation animation) index)
-  (nth index (frames animation)))
+  "Gets the nth frame in the frame queue."
+  (queue-nth index (frames animation)))
 
 (defmacro define-animation (name options &body sequences)
-  (make-instance 'animation :name name)
-  `(progn ,@sequences))
+  "Constructs an animation with the frames for it."
+  (let (animations (file (getf options :file name)))
+    (if (= 0 (length sequences))
+        (let ((animation (make-instance 'animation :name name)))
+          (loop for frame-info in (getf options :frames)
+                do (queue-push
+                    (etypecase frame-info
+                      (list
+                       (let ((index (pop frame-info))) ;; remove index
+                         (make-frame file index options
+                                     :offset (getf frame-info :offset)
+                                     :duration (getf frame-info :duration))))
+                      (number (make-frame file frame-info options)))
+                    (frames animation)))
+          (push animation animations))
+        (loop for sequence in sequences
+              do (let ((animation (make-instance 'animation :name (getf sequence :sequence name))))
+                   (loop for frame-info in (getf sequence :frames)
+                         do (queue-push
+                             (etypecase frame-info
+                               (list
+                                (let ((index (pop frame-info)))
+                                  (make-frame file index options
+                                              :offset (or (getf frame-info :offset)
+                                                          (getf sequence :offset))
+                                              :duration (or (getf frame-info :duration)
+                                                            (getf sequence :duration)))))
+                               (number (make-frame file frame-info options
+                                                   :offset (getf sequence :offset)
+                                                   :duration (getf sequence :duration))))
+                             (frames animation)))
+                   (push animation animations))))
+    (unless (< 0 (length animations))
+      (error "No animations specified."))
+    animations))
 
 ;; Frame class
 (defclass frame ()
-  ((duration :initarg :duration :accessor duration)
+  ((index :initarg :index :accessor index)
+   (duration :initarg :duration :accessor duration)
    (sprite :initarg :sprite :accessor sprite)
-   (area :initarg :area :accessor area))
+   (offset :initarg :offset :accessor offset))
   (:default-initargs
-   :duration 1.0
-   :sprite (error "Sprite needed!")
-   :area (vec 32 32 0)))
+   :index (error "Define index in animation.")
+   :duration (error "Must define duration.")
+   :sprite (error "Must define sprite-sheet.")
+   :offset (error "Must define an offset.")))
 
 (defmethod initialize-instance :after ((frame frame) &key)
   (setf (sprite frame) (sprite frame)))
@@ -98,3 +135,10 @@
      (unless (qtypep sprite "QImage")
        (error "~s is not of class QImage." sprite))
      (setf (slot-value frame 'sprite) sprite))))
+
+(defun make-frame (file index options &key offset duration)
+  (make-instance 'frame
+                 :index index
+                 :sprite file
+                 :offset (or offset (getf options :offset))
+                 :duration (or duration (getf options :duration))))
