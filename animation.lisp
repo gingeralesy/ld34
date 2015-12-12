@@ -58,14 +58,14 @@
 (defmethod sprite ((animatable animatable))
   "Gets the current sprite for the entity."
   (let* ((animation (or (animation animatable NIL)
-                        (error (format NIL "Invalid animation requested: ~a"
-                                       (current-animation animatable)))))
+                        (error "Invalid animation requested: ~a"
+                               (current-animation animatable))))
          (frame (or (frame animation (current-frame animatable))
-                    (error (format NIL "Invalid frame '~a' for animation '~a'"
-                                   (current-frame animatable) (name animation))))))
+                    (error "Invalid frame '~a' for animation '~a'"
+                           (current-frame animatable) (name animation)))))
     (or (sprite frame)
-        (error (format NIL "Missing sprite '~a' for animation '~a'"
-                       (index frame) (current-animation animatable))))))
+        (error "Missing sprite '~a' for animation '~a'"
+               (index frame) (current-animation animatable)))))
 
 (defmethod paint ((animatable animatable) target)
   (let ((image (sprite animatable)))

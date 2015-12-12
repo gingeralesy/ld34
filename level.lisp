@@ -33,7 +33,7 @@
 
 (defmethod enter ((object updatable) (level level))
   (unless (typep object 'paintable)
-    (error (format NIL "Invalid entity type: ~a" object)))
+    (error "Invalid entity type: ~a" object))
   (vector-push-extend object (objects level)))
 
 (defmethod update ((level level))
