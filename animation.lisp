@@ -156,7 +156,7 @@
          (error "File does not exist: ~a" filepath))
        (setf (sprite frame) (q+:make-qimage filepath))))
     (qobject
-     (unless (qtypep sprite "QImage")
+     (unless (and (qtypep sprite "QImage") (not (q+:is-null sprite)))
        (error "~s is not of class QImage." sprite))
      (setf (slot-value frame 'sprite) sprite))))
 
