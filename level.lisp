@@ -1,6 +1,15 @@
 (in-package #:ld34)
 (in-readtable :qtools)
 
+(defclass object-container () ())
+(defclass level (paintable clock object-container) ())
+(defclass clock (updatable) ())
+(defclass origin (entity paintable) ())
+(defclass sprite-entity (entity animatable) ())
+(defclass hitbox (entity) ())
+(defclass hitbox-entity (entity object-container) ())
+(defclass damageable-entity (entity) ())
+
 ;; Container
 
 (defclass object-container ()
@@ -22,14 +31,37 @@
 (defmethod initialize-instance :after ((level level) &key)
   (enter (make-instance 'origin) level))
 
+(defmethod enter ((object updatable) (level level))
+  (unless (typep object 'paintable)
+    (error (format NIL "Invalid entity type: ~a" object)))
+  (vector-push-extend object (objects level)))
+
 (defmethod update ((level level))
   (call-next-method))
+
+(defmethod paint ((level level) target)
+  (let ((entities (objects level)))
+    (dotimes (i (length entities))
+      (let ((entity (elt entities i)))
+        (paint entity target)))))
 
 (defmethod cap ((level level) vec)
   (destructuring-bind (left right bottom top) (extent level)
     (setf (x vec) (max left (min right (x vec)))
           (y vec) (max bottom (min top (y vec)))))
   vec)
+
+(defmethod timer-ready-p (name timeout (level level))
+  (let ((last (gethash name (timers level))))
+    (cond ((not last)
+           (setf (gethash name (timers level)) (clock level))
+           NIL)
+          ((< (+ last timeout) (clock level))
+           (setf (gethash name (timers level)) (clock level))))))
+
+(defmacro with-timer-ready ((name timeout &optional (level '(level))) &body body)
+  `(when (timer-ready-p ,name ,timeout ,level)
+     ,@body))
 
 ;; Clock
 
@@ -73,17 +105,15 @@
     (call-next-method)))
 
 ;; Origin
-(defclass origin (entity paintable) ())
-
-(defmethod name ((origin origin))
-  :origin)
+(defclass origin (entity paintable) ()
+  (:default-initargs
+   :name :origin))
 
 (defmethod paint ((origin origin) target)
-  (call-next-method)
   (setf (q+:color (q+:brush target)) (q+:qt.white))
   (q+:draw-ellipse target
-                   (round (- (x (location origin)) 10))
-                   (round (- (y (location origin)) 10))
+                   (round (- (vx (location origin)) 10))
+                   (round (- (vy (location origin)) 10))
                    20 20))
 
 ;; Sprite entity
@@ -99,10 +129,9 @@
 ;; Entity with Hitbox
 (defclass hitbox-entity (entity object-container) ())
 
-(defmethod enter ((object updatable) (entity hitbox-entity))
-  (error "May only store hitboxes into this collection."))
-
-(defmethod enter ((hitbox hitbox) (entity hitbox-entity))
+(defmethod enter ((hitbox updatable) (entity hitbox-entity))
+  (unless (typep hitbox 'hitbox)
+    (error "May only store hitboxes into this collection."))
   (vector-push-extend hitbox (objects entity)))
 
 ;; Entity with HP

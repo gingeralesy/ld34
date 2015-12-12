@@ -27,3 +27,12 @@
                                (asdf:system-relative-pathname :ld34 path)))))
                 (ecase type (image (q+:make-qimage path filetype))))))))
 
+(defun translate-vec (vec with)
+  (vec (+ (vx vec) (vx with))
+       (+ (vy vec) (vy with))
+       (+ (vz vec) (vz with))))
+
+(defun scale-vec (vec scale)
+  (vec (* (vx vec) scale)
+       (* (vy vec) scale)
+       (* (vz vec) scale)))

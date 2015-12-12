@@ -14,9 +14,6 @@
    (player :initform (make-instance 'player))
    (keys :initform (make-hash-table :test 'eql) :accessor keys)))
 
-(defmethod running ((main main))
-  (running (slot-value main 'level)))
-
 ;; Sub-widgets, additional slots, initializer, and finalizer
 
 (define-subwidget (main timer) (q+:make-qtimer main)
@@ -24,6 +21,18 @@
   (q+:start timer (round *fps*)))
 
 (define-subwidget (main background) (asset 'image 'bg))
+
+(define-slot (main update) ()
+  (declare (connected timer (timeout)))
+  (let ((start (get-internal-real-time)))
+    (with-simple-restart (abort "Abort the update and continue.")
+      (update level))
+    (q+:repaint main)
+    (let* ((elapsed (* (/ (- (get-internal-real-time) start)
+                          internal-time-units-per-second)
+                       1000))
+           (time (round (max 0 (- *fps* elapsed)))))
+      (when (< 0 time) (q+:start timer time)))))
 
 (define-initializer (main setup)
   (setf *main-window* main)
@@ -35,6 +44,15 @@
   (loop for v being the hash-values of *asset-cache* do (finalize v))
   (setf *asset-cache* (make-hash-table :test 'equalp))
   (setf *main-window* NIL))
+
+(defmethod running ((main main))
+  (running (slot-value main 'level)))
+
+(defmethod start ((main main))
+  (stop (slot-value main 'level)))
+
+(defmethod stop ((main main))
+  (start (slot-value main 'level)))
 
 ;; Slot getters
 ;; TODO: Support for multiple levels?
@@ -82,22 +100,22 @@
     (with-finalizing ((painter (q+:make-qpainter main))
                       (bgbrush (q+:make-qbrush background)))
       (setf (q+:render-hint painter) (q+:qpainter.antialiasing)
-            (q+.render-hint painter) (q+:qpainter.text-antialiasing)
-            (q+.render-hint painter) (q+:qpainter.smooth-pixmap-transform)
-            (q+.render-hint painter) (q+:qpainter.high-quality-antialiasing)
+            (q+:render-hint painter) (q+:qpainter.text-antialiasing)
+            (q+:render-hint painter) (q+:qpainter.smooth-pixmap-transform)
+            (q+:render-hint painter) (q+:qpainter.high-quality-antialiasing)
             (q+:style (q+:background painter)) (q+:qt.solid-pattern)
             (q+:color (q+:background painter)) (q+:qt.black)
             (q+:style (q+:brush painter)) (q+:qt.solid-pattern)
             ;; Background
             (q+:transform bgbrush) (q+:translate (q+:transform bgbrush)
-                                                 (* (x (location player)) -2)
-                                                 (* (y (location player)) -2)))
+                                                 (* (vx (location player)) -2)
+                                                 (* (vy (location player)) -2)))
       (q+:fill-rect painter (q+:rect main) bgbrush)
       ;; Translate view
-      (let ((view (translate (vec (/ (q+:width main) 2)
+      (let ((view (translate-vec (vec (/ (q+:width main) 2)
                                   (/ (q+:height main) 2)
                                   0)
-                             (scaled (location player) -1))))
+                             (scale-vec (location player) -1))))
         (with-translation (view painter)
           (paint level painter)))
       ;; Overlay
@@ -106,7 +124,7 @@
                           (white (q+:make-qcolor 255 255 255)))
           (q+:fill-rect painter (q+:rect main) overlay)
           (let ((font (q+:font painter))
-                (player (unit :player level)))
+                (player (player main)))
             (setf (q+:color (q+:pen painter)) white
                   (q+:font painter) font)
             (q+:draw-text painter
@@ -122,7 +140,7 @@
                                  (setf (q+:point-size font) 32)
                                  (format NIL "Paused.~%Press ESC to resume."))
                                 (T ;; return T for paint even success
-                                 T)))))))))
+                                  T)))))))))
 
 ;; Methods
 (defmethod call-with-translation (func target vec)

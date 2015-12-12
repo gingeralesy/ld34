@@ -1,6 +1,6 @@
 (in-package #:ld34)
 
-(defgeneric updatable (updatable))
+(defgeneric update (updatable))
 (defclass updatable () ())
 
 (defclass entity (updatable)
@@ -8,4 +8,4 @@
    (name :initarg :name :accessor name))
   (:default-initargs
    :location (vec 0 0 0)
-   :name "generic-entity"))
+   :name :generic))

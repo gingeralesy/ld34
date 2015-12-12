@@ -49,9 +49,13 @@
     (when (<= vvmax (size v) vdcc)
       (scale v (/ vmax (size v))))
     (when invincible
-      (when (timer-ready-p 'invincible 3 '(level))
+      (with-timer-ready 'invincible 3
         (timer-ready-p 'invincible 3 (level))
         (setf invincible NIL)))
     (incf (x (location player)) (x v))
     (incf (y (location player)) (y v))
     (cap (level) (location player))))
+
+(defmethod paint ((player player) target)
+  (unless (and (invincible player) (timer-ready-p 'invincible-blink 0.1 (level)))
+    (call-next-method)))

@@ -23,6 +23,7 @@
 
 ;; Paintable class
 (defgeneric paint (paintable target))
+(defgeneric sprite (paintable))
 
 (defclass paintable ()
   ((visibility :initarg :visibility :accessor visibility))
@@ -37,16 +38,20 @@
    (spritesheet :initarg :spritesheet :accessor spritesheet))
   (:default-initargs :default-animation :idle))
 
-(defmethod paint ((paintable animatable) target)
-  (let ((image (sprite (elt (frames (gethash (animation paintable)
-                                             (animations paintable)))
-                            (frame paintable)))))
+(defmethod sprite ((obj animatable))
+  (sprite (elt (frames (gethash (animation obj)
+                                (animations obj)))
+               (frame obj))))
+
+(defmethod paint ((obj animatable) target)
+  (let ((image (sprite obj)))
     (q+:draw-image target
                    (round (/ (q+:width image) -2))
                    (q+:height image)
                    image)))
 
-;; Animation class
+  ;; Animation class
+
 (defclass animation ()
   ((frames :initform (make-array 8
                                  :fill-pointer 0
