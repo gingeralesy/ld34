@@ -23,4 +23,5 @@
   :depends-on (:qtools
                :qtcore
                :qtgui
-               :3d-vectors))
+               :3d-vectors
+               :trivial-indent))

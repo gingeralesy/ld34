@@ -75,95 +75,36 @@
                    image)))
 
 ;; Animation class
+(defvar *animations* (make-hash-table :test 'eql))
+
+(defun animation (name &optional error-p)
+  (or (gethash name *animations*)
+      (and error-p (error "No such animation ~s." name))))
+
+(defun (setf animation) (animation name)
+  (setf (gethash name *animations*) animation))
+
+(defun remove-animation (name)
+  (remhash name *animations*))
+
 (defclass animation ()
-  ((frames :initform (make-queue) :accessor frames)
-   (name :initarg :name :accessor name))
-  (:default-initargs
-   :name (error "Must define a name.")))
-
-(defmethod push-frame ((frame frame) (animation animation))
-  "Adds a frame to the frame queue."
-  (queue-push frame (frames animation)))
-
-(defmethod frame ((animation animation) index)
-  "Gets the nth frame in the frame queue."
-  (when (queue-empty-p (frames animation))
-    (error "The frame list for animation ~a is empty." (name animation)))
-  (queue-nth index (frames animation)))
-
-(defmacro define-animation (name options &body sequences)
-  "Constructs an animation with the frames for it."
-  `(let (animations (file (getf ',options :file)))
-     ,(if sequences
-          `(loop for sequence in ',sequences
-                 do (let ((animation (make-instance 'animation :name (getf sequence :sequence ',name)))
-                          (step (getf sequence :step (getf ',options :step))))
-                      (unless step (error "Missing frame step."))
-                      (loop for frame-info in (getf sequence :frames)
-                            do (push-frame
-                                (etypecase frame-info
-                                  (list
-                                   (let ((index (pop frame-info)))
-                                     (make-frame file index ',options
-                                                 :offset (offset (or (getf frame-info :offset)
-                                                                     (getf sequence :offset)
-                                                                     (getf ',options :offset))
-                                                                 step index)
-                                                 :duration (or (getf frame-info :duration)
-                                                               (getf sequence :duration)))))
-                                  (number (make-frame file frame-info ',options
-                                                      :offset (offset (or (getf sequence :offset)
-                                                                          (getf ',options :offset))
-                                                                      step
-                                                                      frame-info)
-                                                      :duration (getf sequence :duration))))
-                                animation))
-                      (push animation animations)))
-          `(let ((animation (make-instance 'animation :name ',name))
-                 (step (getf ',options :step)))
-             (loop for frame-info in (getf ',options :frames)
-                   do (push-frame
-                       (etypecase frame-info
-                         (list
-                          (let ((index (pop frame-info))) ;; remove index
-                            (make-frame file index ',options
-                                        :offset (offset
-                                                 (or (getf frame-info :offset)
-                                                     (getf ',options :offset))
-                                                 step index)
-                                        :duration (getf frame-info :duration))))
-                         (number (make-frame file frame-info ',options
-                                             :offset (offset
-                                                      (getf ',options :offset)
-                                                      step frame-info))))
-                       animation))
-             (push animation animations)))
-     (unless (< 0 (length animations))
-       (error "No animations specified."))
-     animations))
-
-;; Frame class
-(defclass frame ()
-  ((index :initarg :index :accessor index)
-   (duration :initarg :duration :accessor duration)
+  ((name :initarg :name :accessor name)
    (sprite :initarg :sprite :accessor sprite)
-   (offset :initarg :offset :accessor offset))
+   (sequences :initarg :sequences :accessor sequences))
   (:default-initargs
-   :index (error "Define index in animation.")
-   :duration (error "Must define duration.")
-   :sprite (error "Must define sprite-sheet.")
-   :offset (error "Must define an offset.")))
+   :name (error "Must define a name.")
+   :sprite (error "Must define a sprite.")))
 
-(defmethod initialize-instance :after ((frame frame) &key)
-  (setf (sprite frame) (sprite frame)))
+(defmethod initialize-instance :after ((animation animation) &key)
+  (setf (sprite animation) (sprite animation)))
 
-(defmethod (setf sprite) (sprite (frame frame))
+(defmethod (setf sprite) (sprite (animation animation))
   (etypecase sprite
     (string
      (let ((image (asset 'image sprite)))
        (when (q+:is-null image)
          (error "File does not exist: ~a" sprite))
-       (setf (sprite frame) (asset 'image sprite))))
+       (setf (sprite animation) (asset 'image sprite))))
     (pathname
      (let ((filepath (uiop:native-namestring sprite)))
        (unless (probe-file filepath)
@@ -171,18 +112,88 @@
        (let ((image (q+:make-qimage filepath)))
          (when (q+:is-null image)
            (error "File does not exist: ~a" sprite))
-         (setf (sprite frame) image))))
+         (setf (sprite animation) image))))
     (qobject
      (unless (and (qtypep sprite "QImage") (not (q+:is-null sprite)))
        (error "~s is not of class QImage." sprite))
-     (setf (slot-value frame 'sprite) sprite))))
+     (setf (slot-value animation 'sprite) sprite))))
 
-(defun make-frame (file index options &key offset duration)
+(defmacro define-animation (name options &body sequences)
+  "Constructs an animation with the frames for it."
+  (let ((defaults (copy-list options))
+        (file (or (getf options :file)
+                  (string name))))
+    (remf defaults :file)
+    `(progn
+       (setf (animation ',name)
+             (make-instance
+              'animation
+              :name ',name
+              :sprite ,file))
+       ,@(loop for sequence in sequences
+               collect `(define-frame-sequence ,@(rest sequence))))))
+
+(trivial-indent:define-indentation define-animation (2 4 &rest (&whole 2 0 4 &body)))
+
+;;; Sample:
+
+
+;; Sequence class
+(defclass frame-sequence ()
+  ((frames :initform (make-queue) :accessor frames)
+   (name :initarg :name :accessor name))
+  (:default-initargs
+   :name (error "Must define a name.")))
+
+(defmethod push-frame ((frame frame) (frame-sequence frame-sequence))
+  "Adds a frame to the frame queue."
+  (queue-push frame (frames frame-sequence)))
+
+(defmethod frame ((frame-sequence frame-sequence) index)
+  "Gets the nth frame in the frame queue."
+  (when (queue-empty-p (frames frame-sequence))
+    (error "The frame list for frame-sequence ~a is empty." (name frame-sequence)))
+  (queue-nth index (frames frame-sequence)))
+
+(defun frame-sequence (animation name)
+  (find name (sequences (animation animation T)) :key #'name))
+
+(defun (setf frame-sequence) (frame-sequence animation name)
+  (let* ((animation (animation animation T))
+         (pos (position name (sequences animation) :key #'name)))
+    (if pos
+        (setf (nth pos (sequences animation)) frame-sequence)
+        (push frame-sequence (sequences animation))))
+  frame-sequence)
+
+(defun remove-frame-sequence (animation name)
+  (let ((animation (animation animation T)))
+    (setf (sequences animation)
+          (remove name (sequences animation) :key #'name))))
+
+(defmacro define-frame-sequence ((animation name) defaults &body frames)
+  `(setf (frame-sequence ',animation ',name)
+         (make-instance
+          'frame-sequence
+          :name ',name
+          :frames (list ,@(loop for (index . args) in frames
+                                collect `(make-frame ,index ,@args ,@defaults))))))
+
+;; Frame class
+(defclass frame ()
+  ((index :initarg :index :accessor index)
+   (duration :initarg :duration :accessor duration)
+   (offset :initarg :offset :accessor offset))
+  (:default-initargs
+   :index (error "Define index in animation.")
+   :duration (error "Must define duration.")
+   :offset (error "Must define an offset.")))
+
+(defun make-frame (index &key offset duration)
   (make-instance 'frame
                  :index index
-                 :sprite file
-                 :offset (or offset (getf options :offset))
-                 :duration (or duration (getf options :duration))))
+                 :offset offset
+                 :duration duration))
 
 (defun offset (offset step index)
   (list (+ (car offset) (* index (car step)))

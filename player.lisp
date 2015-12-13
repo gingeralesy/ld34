@@ -22,12 +22,11 @@
           (gethash :up keymap) (q+:qt.key_up)
           (gethash :down keymap) (q+:qt.key_down)
           (gethash :light-punch keymap) (q+:qt.key_z)
-          (gethash :heavy-punch keymap) (q+:qt.key_x)))
-  (setf (animation player)
-        (define-animation player
-            (:file "player" :step (32 0) :duration 0.5)
-          (:sequence :idle :offset (0 0)
-           :frames (1 (2 :duration 1) 3 (4 :duration 1))))))
+          (gethash :heavy-punch keymap) (q+:qt.key_x))))
+
+(define-animation player (:file "player" :step (32 0) :duration 0.5)
+  (:sequence :idle (:offset (0 0))
+    (1 (2 :duration 1) 3 (4 :duration 1))))
 
 (defmethod key ((player player) key)
   (gethash key (keymap player)))
