@@ -98,6 +98,7 @@
 (defmethod initialize-instance :after ((animation animation) &key)
   (setf (sprite animation) (sprite animation)))
 
+;; This is a memory leak!!
 (defmethod (setf sprite) (sprite (animation animation))
   (etypecase sprite
     (string
